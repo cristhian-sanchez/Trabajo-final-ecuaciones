@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resonancia en software · Grupo 11</title>
+<style>
+:root{
+  --bg:#0e1621; --panel:#15202e; --panel2:#1b2a3b; --line:#26364a;
+  --text:#e8eef6; --mute:#93a4b8;
+  --teal:#38d0b9; --amber:#f4b740; --coral:#ff7a6b; --blue:#6aa8ff;
+  --serif: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --math: "Cambria Math","STIX Two Math","Latin Modern Math",Georgia,serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+body{font-size:clamp(15px,1.45vw,21px);line-height:1.5}
+
+/* ---------- escenario ---------- */
+#stage{position:absolute;inset:0 0 58px 0}
+.slide{position:absolute;inset:0;padding:clamp(18px,3.4vw,52px) clamp(18px,5vw,80px) 12px;overflow-y:auto;display:none;
+  background:radial-gradient(1200px 600px at 85% -10%,rgba(56,208,185,.07),transparent 60%),var(--bg)}
+.slide.active{display:block;animation:in .35s ease}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.wrap{max-width:1180px;margin:0 auto}
+.kicker{font:600 .72em var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin:0 0 .6em}
+h1,h2{font-family:var(--serif);font-weight:600;margin:0;letter-spacing:-.01em;line-height:1.12}
+h1{font-size:2.9em}
+h2{font-size:1.95em;margin-bottom:.55em}
+h3{font-size:1em;margin:0 0 .35em;color:var(--amber);font-weight:600;letter-spacing:.02em}
+p{margin:.4em 0 .8em}
+.lead{color:var(--mute);font-size:1.12em;max-width:46em}
+.mute{color:var(--mute)}
+b,strong{font-weight:650}
+
+/* revelado paso a paso */
+.rv{opacity:0;transform:translateY(10px);transition:opacity .45s ease,transform .45s ease;visibility:hidden}
+.rv.on,body.all .rv{opacity:1;transform:none;visibility:visible}
+
+/* matemáticas */
+.eq{font-family:var(--math);font-size:1.25em;padding:.55em .9em;background:var(--panel);border:1px solid var(--line);
+  border-left:3px solid var(--teal);border-radius:8px;margin:.5em 0;overflow-x:auto;white-space:nowrap}
+.eq.big{font-size:1.6em;text-align:center;border-left-width:1px;border-top:3px solid var(--amber)}
+.eq.hl{border-left-color:var(--amber)}
+.m{font-family:var(--math);font-style:italic;white-space:nowrap}
+.m .u{font-style:normal}
+sub,sup{line-height:0}
+.k{color:var(--amber)} .t{color:var(--teal)} .c{color:var(--coral)} .bl{color:var(--blue)}
+
+.grid{display:grid;gap:1.1em}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:860px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:1em 1.2em}
+.card ul{margin:.2em 0;padding-left:1.15em}
+.card li{margin:.25em 0}
+.stat{font-family:var(--serif);font-size:2.3em;line-height:1;color:var(--amber);margin-bottom:.15em}
+.chips{display:flex;flex-wrap:wrap;gap:.5em;margin:.7em 0}
+.chip{border:1px solid var(--line);background:var(--panel2);border-radius:99px;padding:.3em .9em;font-size:.92em}
+.chip b{color:var(--teal)}
+.step{display:inline-grid;place-items:center;width:1.9em;height:1.9em;border-radius:50%;background:var(--teal);color:#06231f;
+  font-weight:700;margin-right:.55em;font-size:.9em}
+.callout{border-left:3px solid var(--amber);background:rgba(244,183,64,.08);padding:.7em 1em;border-radius:0 8px 8px 0;margin:.8em 0}
+.ok{border-left-color:var(--teal);background:rgba(56,208,185,.08)}
+
+table{border-collapse:collapse;width:100%;font-size:.93em}
+th,td{border-bottom:1px solid var(--line);padding:.55em .7em;text-align:left;vertical-align:top}
+th{color:var(--mute);font-weight:600;font-size:.82em;letter-spacing:.06em;text-transform:uppercase}
+tr.rv td{transition:none}
+td .m{font-size:1.08em}
+
+/* gráficas y controles */
+canvas{width:100%;height:clamp(240px,40vh,420px);display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+canvas.sm{height:clamp(220px,34vh,330px)}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.7em 1.4em;margin:.9em 0}
+.ctl label{display:flex;justify-content:space-between;font-size:.88em;color:var(--mute)}
+.ctl label output{color:var(--text);font-family:var(--math);font-size:1.05em}
+input[type=range]{width:100%;accent-color:var(--teal);margin:.25em 0}
+.row{display:flex;flex-wrap:wrap;gap:.5em;align-items:center;margin:.5em 0}
+button,.btn{font:inherit;font-size:.9em;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:.4em .9em;cursor:pointer}
+button:hover{border-color:var(--teal)}
+button.on{background:var(--teal);color:#06231f;border-color:var(--teal);font-weight:600}
+.check{display:inline-flex;gap:.4em;align-items:center;font-size:.9em;color:var(--mute);cursor:pointer}
+.read{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.7em;margin-top:.8em}
+.read div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.55em .9em}
+.read small{display:block;color:var(--mute);font-size:.78em}
+.read span{font-family:var(--math);font-size:1.2em}
+.legend{display:flex;gap:1.2em;flex-wrap:wrap;font-size:.85em;color:var(--mute);margin:.5em 0 0}
+.legend i{display:inline-block;width:1.4em;height:3px;border-radius:2px;vertical-align:middle;margin-right:.4em}
+
+/* barra inferior */
+#bar{position:absolute;left:0;right:0;bottom:0;height:58px;display:flex;align-items:center;gap:.8em;padding:0 clamp(12px,3vw,40px);
+  background:#0a111a;border-top:1px solid var(--line)}
+#dots{flex:1;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+#dots button{width:11px;height:11px;padding:0;border-radius:50%;background:var(--line);border:0}
+#dots button.on{background:var(--teal);transform:scale(1.25)}
+#dots button:hover{background:var(--mute)}
+#count{color:var(--mute);font-size:.85em;min-width:3.6em;text-align:center;font-variant-numeric:tabular-nums}
+#bar .btn2{min-width:2.4em}
+@media(max-width:700px){#modeBtn span{display:none}}
+
+/* portada */
+.cover{min-height:100%;display:flex;flex-direction:column;justify-content:center}
+.cover h1 em{font-style:italic;color:var(--amber)}
+.wave{margin-top:1.6em;opacity:.9}
+.meta{margin-top:1.4em;color:var(--mute);font-size:.95em}
+.meta b{color:var(--text)}
+.hint{margin-top:1.8em;font-size:.85em;color:var(--mute)}
+kbd{font-family:var(--sans);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:.05em .45em;background:var(--panel2);font-size:.9em}
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+<!-- 1 · PORTADA -->
+<section class="slide" data-title="Portada">
+  <div class="wrap cover">
+    <p class="kicker">Ecuaciones diferenciales · Ingeniería de Software</p>
+    <h1>Cuando la carga coincide con el ritmo del sistema: <em>resonancia</em></h1>
+    <p class="lead rv">Modelos de primer orden y de orden superior: formulación, solución y simulación.</p>
+    <canvas id="coverWave" class="wave" style="height:110px;background:transparent;border:0"></canvas>
+    <p class="meta rv"><b>Grupo 11</b> · Universidad Cooperativa de Colombia, Pasto<br>
+      <!-- EDITAR: nombres de los integrantes y docente -->
+      Integrantes: Cristhian  · Jhoan  · Juan <br>
+      </p>
+    <p class="hint">Navega con <kbd>→</kbd> <kbd>←</kbd> o <kbd>espacio</kbd>. Cada pulsación revela el siguiente paso. <kbd>F</kbd> pantalla completa · <kbd>L</kbd> modo lectura.</p>
+  </div>
+</section>
+
+<!-- 2 · POR QUÉ IMPORTA -->
+<section class="slide" data-title="Por qué importa">
+  <div class="wrap">
+    <p class="kicker">Contexto</p>
+    <h2>Por qué estos problemas importan en software</h2>
+    <div class="grid g2">
+      <div class="card rv">
+        <h3>Primer orden · Parte I</h3>
+        <ul>
+          <li>Población de Pasto (datos del DANE)</li>
+          <li>Enfriamiento de Newton</li>
+          <li>Mezclas: balance de masa</li>
+          <li>Circuito RC</li>
+        </ul>
+        <p class="mute">En todos, la rapidez de cambio depende del estado actual. Comportamiento <b>monótono</b>: se acercan a un equilibrio o se alejan, sin oscilar.</p>
+      </div>
+      <div class="card rv">
+        <h3>Ejercicio 11 · orden superior</h3>
+        <p>Fluctuaciones periódicas en la transmisión de datos de una red: un sistema con <b>inercia</b>, excitado por una demanda periódica (ráfagas de solicitudes, copias de seguridad, tareas programadas).</p>
+        <p class="mute">El segundo orden agrega oscilaciones, pulsaciones y resonancia.</p>
+      </div>
+    </div>
+    <div class="callout rv" style="font-size:1.15em;margin-top:1.2em">
+      <b>Pregunta clave:</b> ¿qué pasa si la demanda periódica coincide con la frecuencia natural del sistema?
+      <div class="mute" style="font-size:.85em;margin-top:.3em">Un modelo de segundo orden permite anticipar el problema <i>antes</i> de que ocurra en producción.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 · FORMULACIÓN -->
+<section class="slide" data-title="Formulación">
+  <div class="wrap">
+    <p class="kicker">Formulación matemática</p>
+    <h2>Cada modelo, su tipo de ecuación y su método</h2>
+    <table>
+      <thead><tr><th>Fenómeno</th><th>Ecuación</th><th>Clasificación</th><th>Método</th></tr></thead>
+      <tbody>
+        <tr class="rv"><td>Población de Pasto</td><td><span class="m">dP/dt = kP</span></td><td>1.er orden, lineal, homogénea</td><td>Variables separables → <span class="m">P = P<sub>0</sub>e<sup>kt</sup></span></td></tr>
+        <tr class="rv"><td>Enfriamiento de Newton</td><td><span class="m">dT/dt = k(T − T<sub>m</sub>)</span></td><td>1.er orden, lineal</td><td>Variables separables</td></tr>
+        <tr class="rv"><td>Mezcla de salmuera</td><td><span class="m">dA/dt + (r/V)A = r·c<sub>e</sub></span></td><td>1.er orden, lineal, no homogénea</td><td>Factor integrante</td></tr>
+        <tr class="rv"><td>Circuito RC</td><td><span class="m">R dq/dt + q/C = E</span></td><td>1.er orden, lineal, no homogénea</td><td>Factor integrante</td></tr>
+        <tr class="rv" style="background:rgba(244,183,64,.08)"><td><b>Ejercicio 11 · red</b></td><td><span class="m k">y″ + 9y = 6 sen 3t</span></td><td><b>2.º orden</b>, lineal, no homogénea, coef. constantes</td><td><b>Ecuación característica + coeficientes indeterminados</b></td></tr>
+      </tbody>
+    </table>
+    <p class="mute rv" style="margin-top:1em">La clasificación decide el método. Pasamos a resolver el ejercicio 11 paso a paso.</p>
+  </div>
+</section>
+
+<!-- 4 · PROBLEMA Y CLASIFICACIÓN -->
+<section class="slide" data-title="El problema">
+  <div class="wrap">
+    <p class="kicker">Ejercicio 11</p>
+    <h2>El problema de valor inicial</h2>
+    <div class="eq big rv"><span class="m">y″ + 9y = 6 sen(3t),&nbsp;&nbsp; y(0) = 15,&nbsp;&nbsp; y′(0) = 3</span></div>
+    <div class="grid g2" style="margin-top:1em">
+      <div class="card rv">
+        <h3>Qué representa</h3>
+        <p><span class="m">y(t)</span>: magnitud de la transmisión (unidades) · <span class="m">t</span>: segundos.</p>
+        <p>Inicia en 15 unidades y crece a 3 unidades/s. <span class="m">y″</span> es la inercia, <span class="m">9y</span> la fuerza restauradora y <span class="m">6 sen 3t</span> la demanda externa periódica.</p>
+      </div>
+      <div class="card rv">
+        <h3>Parámetros</h3>
+        <ul>
+          <li>Frecuencia natural <span class="m">ω<sub>0</sub> = 3 rad/s</span> (período ≈ 2,09 s)</li>
+          <li>Excitación: <span class="m">F = 6</span>, <span class="m">ω = 3 rad/s</span></li>
+          <li>Sin amortiguamiento (no hay término en <span class="m">y′</span>)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="chips rv">
+      <span class="chip">Orden <b>2</b></span><span class="chip">Grado <b>1</b></span><span class="chip"><b>Lineal</b></span>
+      <span class="chip"><b>No homogénea</b> (g(t) = 6 sen 3t)</span><span class="chip">Coeficientes <b>constantes</b></span>
+    </div>
+    <div class="callout rv"><b>Observa:</b> <span class="m">ω = ω<sub>0</sub> = 3</span>. La excitación tiene justo la frecuencia natural del sistema. Veamos qué consecuencia tiene.</div>
+  </div>
+</section>
+
+<!-- 5 · PASO 1 -->
+<section class="slide" data-title="Paso 1">
+  <div class="wrap">
+    <p class="kicker">Método de solución</p>
+    <h2><span class="step">1</span>Solución complementaria</h2>
+    <p class="lead rv">Resolvemos primero la ecuación homogénea, proponiendo <span class="m">y = e<sup>rt</sup></span>.</p>
+    <div class="eq rv"><span class="m">y″ + 9y = 0 &nbsp;⇒&nbsp; r² + 9 = 0</span></div>
+    <div class="eq rv"><span class="m">r = ±3i &nbsp;&nbsp;(α = 0, β = 3)</span> &nbsp; <span class="mute" style="font-size:.7em">raíces complejas conjugadas</span></div>
+    <div class="eq hl rv"><span class="m">y<sub>c</sub>(t) = C<sub>1</sub> cos 3t + C<sub>2</sub> sen 3t</span></div>
+    <div class="callout ok rv">Oscila a 3 rad/s, con período 2π/3 ≈ 2,09 s. Con <span class="m">α = 0</span> la oscilación libre no decae: el sistema no pierde energía.</div>
+    <div class="row rv"><span class="mute" style="font-size:.88em">Tabla de casos: discriminante &gt; 0 → exponenciales reales · = 0 → <span class="m">(C<sub>1</sub>+C<sub>2</sub>t)e<sup>rt</sup></span> · &lt; 0 → <span class="m">e<sup>αt</sup>(C<sub>1</sub>cos βt + C<sub>2</sub>sen βt)</span></span></div>
+  </div>
+</section>
+
+<!-- 6 · PASO 2 -->
+<section class="slide" data-title="Paso 2">
+  <div class="wrap">
+    <p class="kicker">Método de solución</p>
+    <h2><span class="step">2</span>Solución particular: aparece la resonancia</h2>
+    <p class="rv">Como <span class="m">g(t) = 6 sen 3t</span>, lo normal sería proponer:</p>
+    <div class="eq rv"><span class="m">y<sub>p</sub> = K<sub>1</sub> cos 3t + K<sub>2</sub> sen 3t</span> &nbsp;&nbsp;<span class="c" style="font-size:.7em;font-family:var(--sans)">✗ ya está en y<sub>c</sub></span></div>
+    <div class="callout rv"><b>Regla de modificación:</b> si un término propuesto ya está en <span class="m">y<sub>c</sub></span>, se multiplica toda la propuesta por <span class="m">t</span>. Esa es la señal algebraica de la <b>resonancia</b>.</div>
+    <div class="eq hl rv"><span class="m">y<sub>p</sub> = t( A cos 3t + B sen 3t )</span></div>
+    <p class="rv">Derivando dos veces y sustituyendo, los términos en <span class="m">t</span> se cancelan:</p>
+    <div class="eq rv"><span class="m">y<sub>p</sub>″ + 9y<sub>p</sub> = −6A sen 3t + 6B cos 3t = 6 sen 3t</span></div>
+    <div class="grid g2">
+      <div class="eq rv"><span class="m">−6A = 6 ⇒ <span class="k">A = −1</span></span></div>
+      <div class="eq rv"><span class="m">6B = 0 ⇒ <span class="k">B = 0</span></span></div>
+    </div>
+    <div class="eq hl rv"><span class="m">y<sub>p</sub>(t) = −t cos 3t</span></div>
+  </div>
+</section>
+
+<!-- 7 · PASO 3 -->
+<section class="slide" data-title="Paso 3">
+  <div class="wrap">
+    <p class="kicker">Método de solución</p>
+    <h2><span class="step">3</span>Condiciones iniciales y solución final</h2>
+    <div class="eq rv"><span class="m">y(t) = y<sub>c</sub> + y<sub>p</sub> = C<sub>1</sub> cos 3t + C<sub>2</sub> sen 3t − t cos 3t</span></div>
+    <div class="grid g2">
+      <div class="card rv">
+        <h3>y(0) = 15</h3>
+        <p class="m">C<sub>1</sub> = 15</p>
+      </div>
+      <div class="card rv">
+        <h3>y′(0) = 3</h3>
+        <p class="m" style="margin-bottom:.2em">y′ = −3C<sub>1</sub> sen 3t + 3C<sub>2</sub> cos 3t − cos 3t + 3t sen 3t</p>
+        <p class="m">3C<sub>2</sub> − 1 = 3 ⇒ C<sub>2</sub> = 4/3</p>
+      </div>
+    </div>
+    <div class="eq big rv"><span class="m k">y(t) = (15 − t) cos 3t + (4/3) sen 3t</span></div>
+    <div class="callout ok rv"><b>Verificación a mano:</b> <span class="m">y(0) = 15</span> ✓ · <span class="m">y′(0) = −1 + 4 = 3</span> ✓ · sustituyendo, <span class="m">y″ + 9y = 6 sen 3t</span> ✓.<br>
+      <span class="mute">Ahora la comprobamos con simulación.</span></div>
+  </div>
+</section>
+
+<!-- 8 · SIMULACIÓN -->
+<section class="slide" data-title="Simulación">
+  <div class="wrap">
+    <p class="kicker">Simulación interactiva</p>
+    <h2>Mueve los parámetros y mira qué pasa</h2>
+    <p class="mute" style="margin-top:-.3em">Modelo general: <span class="m">y″ + c·y′ + 9y = 6 sen(ωt)</span>. El caso del ejercicio 11 es <span class="m">c = 0, ω = 3</span>.</p>
+    <div class="row rv">
+      <span class="mute" style="font-size:.85em">Casos del informe:</span>
+      <button data-p="res">Resonancia (ej. 11)</button>
+      <button data-p="w25">ω = 2,5</button>
+      <button data-p="w28">ω = 2,8</button>
+      <button data-p="c05">c = 0,5</button>
+      <button data-p="c1">c = 1</button>
+      <button data-p="c2">c = 2</button>
+    </div>
+    <canvas id="simCanvas" class="sm rv"></canvas>
+    <div class="legend rv">
+      <span><i style="background:var(--teal)"></i>Solución (Runge–Kutta 4)</span>
+      <span><i style="background:var(--amber)"></i>Solución analítica del informe</span>
+      <span><i style="background:var(--coral)"></i>Euler (h = 0,01)</span>
+      <span><i style="background:var(--blue);opacity:.7"></i>Envolvente de amplitud</span>
+    </div>
+    <div class="controls rv">
+      <div class="ctl"><label>Frecuencia ω <output id="o_w"></output></label><input type="range" id="s_w" min="1.5" max="4.5" step="0.05" value="3"></div>
+      <div class="ctl"><label>Amortiguamiento c <output id="o_c"></output></label><input type="range" id="s_c" min="0" max="3" step="0.1" value="0"></div>
+      <div class="ctl"><label>y(0) <output id="o_y0"></output></label><input type="range" id="s_y0" min="-40" max="60" step="1" value="15"></div>
+      <div class="ctl"><label>y′(0) <output id="o_v0"></output></label><input type="range" id="s_v0" min="-20" max="20" step="1" value="3"></div>
+      <div class="ctl"><label>Tiempo total <output id="o_T"></output></label><input type="range" id="s_T" min="10" max="90" step="5" value="30"></div>
+    </div>
+    <div class="row rv">
+      <label class="check"><input type="checkbox" id="ck_an" checked> analítica</label>
+      <label class="check"><input type="checkbox" id="ck_eu"> Euler</label>
+      <label class="check"><input type="checkbox" id="ck_env" checked> envolvente</label>
+    </div>
+    <div class="read rv" id="simRead"></div>
+  </div>
+</section>
+
+<!-- 9 · VERIFICACIÓN -->
+<section class="slide" data-title="Verificación">
+  <div class="wrap">
+    <p class="kicker">Verificación numérica</p>
+    <h2>¿Cómo sabemos que la solución es correcta?</h2>
+    <p class="lead rv">Integramos la ecuación por otro camino —sin usar nuestra fórmula— y comparamos.</p>
+    <div class="grid g2 rv">
+      <div><canvas id="verA" class="sm"></canvas>
+        <div class="legend"><span><i style="background:var(--amber)"></i>Analítica</span><span><i style="background:var(--teal)"></i>Runge–Kutta</span><span><i style="background:var(--coral)"></i>Euler h = 0,01</span></div></div>
+      <div><canvas id="verB" class="sm"></canvas>
+        <div class="legend"><span>Error absoluto respecto a la analítica (escala logarítmica)</span></div></div>
+    </div>
+    <div class="read rv" id="verRead"></div>
+    <div class="callout rv"><b>Lectura:</b> un método de orden superior (Runge–Kutta) reproduce la solución con error ínfimo. Euler pierde precisión porque en un oscilador sin amortiguamiento su error <b>inyecta energía artificial</b>.
+      <span class="mute">En el informe, con RK45 de SciPy (tolerancia 10⁻¹⁰), el error máximo fue ≈ 4 × 10⁻⁹. Aquí se muestra RK4 hecho en JavaScript para que lo veas en vivo.</span></div>
+  </div>
+</section>
+
+<!-- 10 · RESULTADOS -->
+<section class="slide" data-title="Resultados">
+  <div class="wrap">
+    <p class="kicker">Interpretación</p>
+    <h2>¿Qué significa esta solución?</h2>
+    <div class="grid g4">
+      <div class="card rv"><div class="stat">4/3</div><b>Amplitud mínima</b><p class="mute">Se alcanza en <span class="m">t = 15 s</span>: el término resonante está desfasado y cancela parcialmente la oscilación inicial.</p></div>
+      <div class="card rv"><div class="stat">1 u/s</div><b>Crecimiento posterior</b><p class="mute">La envolvente <span class="m">R(t) = √((15 − t)² + 16/9)</span> crece sin cota: en el modelo ideal no hay régimen estable.</p></div>
+      <div class="card rv"><div class="stat">2/c</div><b>Con amortiguamiento</b><p class="mute">La respuesta queda acotada. En resonancia la amplitud es <span class="m">F/(cω) = 2/c</span>: 4, 2 y 1 para c = 0,5, 1 y 2.</p></div>
+      <div class="card rv"><div class="stat">ω ≠ 3</div><b>Fuera de resonancia</b><p class="mute">Respuesta acotada, de amplitud <span class="m">6/|9 − ω²|</span>, con pulsaciones de período <span class="m">2π/|3 − ω|</span>.</p></div>
+    </div>
+    <div class="callout rv" style="margin-top:1.2em"><b>Las condiciones iniciales no evitan la resonancia:</b> solo desplazan en el tiempo el mínimo de la envolvente (ocurre en <span class="m">t = C<sub>1</sub> = y(0)</span>). Pruébalo en la simulación moviendo <span class="m">y(0)</span>.</div>
+    <div class="callout ok rv">En un sistema real, la saturación de recursos y las políticas de control impedirían el crecimiento indefinido. El valor del modelo está en <b>identificar la condición de riesgo</b> (excitación en la frecuencia natural), no en predecir valores para tiempos largos.</div>
+  </div>
+</section>
+
+<!-- 11 · PRIMER ORDEN -->
+<section class="slide" data-title="Primer orden">
+  <div class="wrap">
+    <p class="kicker">Parte I · modelos de primer orden</p>
+    <h2>Los cuatro fenómenos, explorables</h2>
+    <div class="row rv" id="foTabs"></div>
+    <div class="eq rv" id="foEq"></div>
+    <canvas id="foCanvas" class="sm rv"></canvas>
+    <div class="controls rv" id="foCtl"></div>
+    <div class="read rv" id="foRead"></div>
+    <div class="callout rv" id="foNote"></div>
+  </div>
+</section>
+
+<!-- 12 · LIMITACIONES -->
+<section class="slide" data-title="Limitaciones">
+  <div class="wrap">
+    <p class="kicker">Honestidad del modelo</p>
+    <h2>Limitaciones y mejoras</h2>
+    <div class="grid g2">
+      <div class="card rv">
+        <h3>Limitaciones</h3>
+        <ul>
+          <li>Modelo <b>lineal y sin amortiguamiento</b>.</li>
+          <li>La solución toma <b>valores negativos</b> sin sentido físico para tráfico o carga: describe la desviación respecto a un nivel de referencia.</li>
+          <li>En población, <span class="m">k</span> no es constante entre períodos.</li>
+          <li><b>Datos:</b> solo población usa datos reales (DANE). Temperatura es una serie simulada; mezclas y circuito usan parámetros supuestos en rangos realistas.</li>
+        </ul>
+      </div>
+      <div class="card rv">
+        <h3>Mejoras propuestas</h3>
+        <ul>
+          <li>Estimar el <b>amortiguamiento</b> con mediciones reales.</li>
+          <li>Modelar la <b>saturación</b> con un término no lineal acotado.</li>
+          <li>Ajustar <span class="m">ω<sub>0</sub>, c, F</span> con tráfico real (mínimos cuadrados no lineales).</li>
+          <li><b>Validar</b> con mediciones antes de tomar decisiones de capacidad.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 13 · IMPACTO / CIERRE -->
+<section class="slide" data-title="Impacto y cierre">
+  <div class="wrap">
+    <p class="kicker">Impacto profesional</p>
+    <h2>La ecuación como herramienta de decisión</h2>
+    <div class="grid g3">
+      <div class="card rv"><h3>Detectar</h3><p>Condiciones de resonancia <b>antes de producción</b>: cargas periódicas (lotes, backups, sincronizaciones) cerca del ritmo natural del sistema.</p></div>
+      <div class="card rv"><h3>Probar mitigaciones</h3><p>Por simulación: límites de tasa, colas acotadas, descarte de solicitudes y escalado automático actúan como amortiguamiento <span class="m">c</span>.</p></div>
+      <div class="card rv"><h3>Verificar</h3><p>Soluciones analíticas contra métodos numéricos independientes, como hicimos con Runge–Kutta.</p></div>
+    </div>
+    <div class="callout ok rv" style="font-size:1.12em;margin-top:1.2em">
+      <b>Conclusión:</b> la solución matemática, la simulación y la interpretación se necesitan entre sí. Resolver a mano da la forma exacta; simular permite explorar escenarios; interpretar convierte ambas en una decisión de ingeniería.
+    </div>
+    <p class="mute rv" style="font-size:.85em">Fuentes: Zill (2018); Boyce y DiPrima (2017); DANE; Alcaldía de Pasto (2019); CEDRE (2024); Chen et al. (2018); Harris et al. (2020); Virtanen et al. (2020); Hunter (2007). Referencias completas en el informe.</p>
+    <h2 class="rv" style="text-align:center;margin-top:1em;font-size:1.7em">Muchas gracias · quedamos atentos a sus preguntas</h2>
+  </div>
+</section>
+
+</div>
+
+<div id="bar">
+  <button class="btn2" id="prev" aria-label="Anterior">←</button>
+  <div id="dots"></div>
+  <span id="count"></span>
+  <button class="btn2" id="next" aria-label="Siguiente">→</button>
+  <button id="modeBtn" title="Alternar modo (L)">📖<span> Modo lectura</span></button>
+  <button id="fsBtn" title="Pantalla completa (F)">⛶</button>
+</div>
+
+<script>
+/* =====================================================
+   Utilidades
+===================================================== */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const es = (x, d=2) => (+x).toFixed(d).replace('.', ',');
+const C = {teal:'#38d0b9', amber:'#f4b740', coral:'#ff7a6b', blue:'#6aa8ff', mute:'#93a4b8', line:'#26364a', text:'#e8eef6'};
+
+function niceTicks(min, max, n=6){
+  const span = max - min || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag, step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const out = []; for(let v = Math.ceil(min/step)*step; v <= max + step*1e-6; v += step) out.push(+v.toFixed(12));
+  return out;
+}
+
+/* Gráfica genérica en canvas */
+function plot(cv, o){
+  const dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+  if(!r.width || !r.height) return;
+  cv.width = r.width*dpr; cv.height = r.height*dpr;
+  const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const W = r.width, H = r.height, L = o.ylog ? 58 : (o.wideY ? 86 : 62), R = 24, T = 14, B = 40;
+  const pw = W-L-R, ph = H-T-B;
+  const tr = v => o.ylog ? Math.log10(Math.max(v, 1e-300)) : v;
+  let [x0,x1] = o.xlim, [y0,y1] = o.ylim;
+  if(o.ylog){ y0 = Math.log10(y0); y1 = Math.log10(y1); }
+  const X = x => L + (x-x0)/(x1-x0)*pw, Y = y => T + ph - (tr(y)-(o.ylog?y0:y0))/(y1-y0)*ph;
+  const fx = o.fmtX || (v => String(v).replace('.', ','));
+  const fy = o.fmtY || (v => String(v).replace('.', ','));
+  g.font = '12px system-ui,sans-serif'; g.textBaseline = 'middle';
+
+  // rejilla
+  g.lineWidth = 1;
+  let yt = [];
+  if(o.ylog){ for(let e = Math.ceil(y0); e <= Math.floor(y1); e++) yt.push(e); }
+  else yt = niceTicks(y0, y1, 6);
+  yt.forEach(v => {
+    const yy = o.ylog ? T+ph-(v-y0)/(y1-y0)*ph : Y(v);
+    g.strokeStyle = (!o.ylog && Math.abs(v) < 1e-9) ? '#3b5068' : C.line;
+    g.beginPath(); g.moveTo(L, yy); g.lineTo(L+pw, yy); g.stroke();
+    g.fillStyle = C.mute; g.textAlign = 'right';
+    g.fillText(o.ylog ? '10^'+v : fy(v), L-8, yy);
+  });
+  const xt = niceTicks(x0, x1, Math.max(4, Math.round(pw/90)));
+  xt.forEach(v => {
+    g.strokeStyle = C.line; g.beginPath(); g.moveTo(X(v), T); g.lineTo(X(v), T+ph); g.stroke();
+    g.fillStyle = C.mute; g.textAlign = 'center'; g.fillText(fx(v), X(v), T+ph+14);
+  });
+  g.fillStyle = C.mute; g.textAlign = 'center'; g.fillText(o.xlabel || '', L+pw/2, H-8);
+  if(o.ylabel){ g.save(); g.translate(13, T+ph/2); g.rotate(-Math.PI/2); g.fillText(o.ylabel, 0, 0); g.restore(); }
+
+  // líneas horizontales de referencia
+  (o.hlines||[]).forEach(h => {
+    g.setLineDash([6,5]); g.strokeStyle = h.color || C.mute; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(L, Y(h.y)); g.lineTo(L+pw, Y(h.y)); g.stroke(); g.setLineDash([]);
+    if(h.label){ g.fillStyle = h.color || C.mute; g.textAlign = 'right'; g.fillText(h.label, L+pw-6, Y(h.y)-9); }
+  });
+
+  // series
+  g.save(); g.beginPath(); g.rect(L, T, pw, ph); g.clip();
+  o.series.forEach(s => {
+    g.strokeStyle = s.color; g.lineWidth = s.width || 2; g.globalAlpha = s.alpha ?? 1;
+    g.setLineDash(s.dash || []); g.beginPath();
+    let started = false;
+    for(let i = 0; i < s.x.length; i++){
+      if(o.ylog && s.y[i] <= 0){ started = false; continue; }
+      const px = X(s.x[i]), py = Y(s.y[i]);
+      if(!started){ g.moveTo(px, py); started = true; } else g.lineTo(px, py);
+    }
+    g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  });
+  (o.points||[]).forEach(p => {
+    g.fillStyle = p.color; g.strokeStyle = '#0e1621'; g.lineWidth = 1.5;
+    g.beginPath(); g.rect(X(p.x)-5, Y(p.y)-5, 10, 10); g.fill(); g.stroke();
+    if(p.label){ g.fillStyle = p.color; g.textAlign = 'right'; g.fillText(p.label, X(p.x)-9, Y(p.y)); }
+  });
+  g.restore();
+  // marco
+  g.strokeStyle = '#3b5068'; g.lineWidth = 1; g.strokeRect(L, T, pw, ph);
+  // leyenda interna
+  if(o.legend){
+    const n = o.legend.length; let ly = (o.legendPos==='bl') ? T+ph-(n-1)*17-12 : T+14; g.textAlign = 'left';
+    o.legend.forEach(l => { g.fillStyle = l.color; g.fillRect(L+10, ly-2, 16, 3); g.fillStyle = C.text; g.fillText(l.text, L+32, ly); ly += 17; });
+  }
+}
+
+/* =====================================================
+   Numérica del oscilador  y″ + c y′ + 9 y = 6 sen(ωt)
+===================================================== */
+function rhs(t, y, v, w, c){ return 6*Math.sin(w*t) - c*v - 9*y; }
+
+function rk4(w, c, y0, v0, T, h=0.002, every=5){
+  const ts=[0], ys=[y0]; let t=0, y=y0, v=v0, k=0;
+  const n = Math.round(T/h);
+  for(let i=0;i<n;i++){
+    const a1=v,            b1=rhs(t,y,v,w,c);
+    const a2=v+h/2*b1,     b2=rhs(t+h/2,y+h/2*a1,v+h/2*b1,w,c);
+    const a3=v+h/2*b2,     b3=rhs(t+h/2,y+h/2*a2,v+h/2*b2,w,c);
+    const a4=v+h*b3,       b4=rhs(t+h,y+h*a3,v+h*b3,w,c);
+    y += h/6*(a1+2*a2+2*a3+a4); v += h/6*(b1+2*b2+2*b3+b4); t += h;
+    if(++k % every === 0){ ts.push(t); ys.push(y); }
+  }
+  return {t:ts, y:ys};
+}
+function euler(w, c, y0, v0, T, h=0.01){
+  const ts=[0], ys=[y0]; let t=0, y=y0, v=v0;
+  const n = Math.round(T/h);
+  for(let i=0;i<n;i++){
+    const a = rhs(t,y,v,w,c);
+    y += h*v; v += h*a; t += h; ts.push(t); ys.push(y);
+  }
+  return {t:ts, y:ys};
+}
+const analitica = (t, y0=15, v0=3) => (y0 - t)*Math.cos(3*t) + ((v0+1)/3)*Math.sin(3*t);
+const envelope  = (t, y0=15, v0=3) => Math.sqrt((y0 - t)**2 + ((v0+1)/3)**2);
+const maxAbs = a => a.reduce((m,v)=>Math.max(m,Math.abs(v)),0);
+const SUP = {'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+const sci = v => { const [m,e]=v.toExponential(1).split('e'); return m.replace('.',',')+'×10'+[...String(+e)].map(ch=>SUP[ch]||ch).join(''); };
+
+/* =====================================================
+   Portada: onda decorativa
+===================================================== */
+function drawCover(){
+  const cv = $('#coverWave'); const r = cv.getBoundingClientRect(); if(!r.width) return;
+  const dpr = window.devicePixelRatio||1; cv.width=r.width*dpr; cv.height=r.height*dpr;
+  const g = cv.getContext('2d'); g.scale(dpr,dpr);
+  const W=r.width,H=r.height; g.lineWidth=2.2;
+  const grad=g.createLinearGradient(0,0,W,0); grad.addColorStop(0,C.teal); grad.addColorStop(1,C.amber);
+  g.strokeStyle=grad; g.beginPath();
+  for(let i=0;i<=W;i++){
+    const t = i/W*30, y = analitica(t)/ (15.1);   // la solución real del ejercicio 11
+    const py = H/2 - y*H*0.46; i? g.lineTo(i,py) : g.moveTo(i,py);
+  }
+  g.stroke();
+}
+
+/* =====================================================
+   Simulación interactiva (slide 8)
+===================================================== */
+const S = {w:3, c:0, y0:15, v0:3, T:30};
+const presets = {
+  res:{w:3,c:0}, w25:{w:2.5,c:0,T:60}, w28:{w:2.8,c:0,T:60},
+  c05:{w:3,c:.5}, c1:{w:3,c:1}, c2:{w:3,c:2}
+};
+function readSim(){
+  S.w=+$('#s_w').value; S.c=+$('#s_c').value; S.y0=+$('#s_y0').value; S.v0=+$('#s_v0').value; S.T=+$('#s_T').value;
+  $('#o_w').textContent = es(S.w,2)+' rad/s'; $('#o_c').textContent = es(S.c,1);
+  $('#o_y0').textContent = S.y0; $('#o_v0').textContent = S.v0; $('#o_T').textContent = S.T+' s';
+}
+function drawSim(){
+  readSim();
+  const cv = $('#simCanvas'); if(!cv.getBoundingClientRect().width) return;
+  const num = rk4(S.w, S.c, S.y0, S.v0, S.T);
+  const exact = (S.c===0 && Math.abs(S.w-3)<1e-9);
+  const series = [{x:num.t, y:num.y, color:C.teal, width:2.4}];
+  let errTxt = '—';
+  if($('#ck_env').checked && exact){
+    const e = num.t.map(t=>envelope(t,S.y0,S.v0));
+    series.push({x:num.t,y:e,color:C.blue,dash:[5,4],width:1.5,alpha:.8});
+    series.push({x:num.t,y:e.map(v=>-v),color:C.blue,dash:[5,4],width:1.5,alpha:.8});
+  }
+  if($('#ck_an').checked && exact){
+    series.push({x:num.t, y:num.t.map(t=>analitica(t,S.y0,S.v0)), color:C.amber, width:1.4, dash:[2,4]});
+  }
+  if(exact){ errTxt = (()=>{let m=0; num.t.forEach((t,i)=>{m=Math.max(m,Math.abs(num.y[i]-analitica(t,S.y0,S.v0)))}); return sci(m);})(); }
+  if($('#ck_eu').checked){ const eu = euler(S.w,S.c,S.y0,S.v0,S.T,0.01); series.push({x:eu.t,y:eu.y,color:C.coral,width:1.4,alpha:.9}); }
+  const m = maxAbs(num.y);
+  const ymax = Math.max(5, m*1.12);
+  plot(cv, {series, xlim:[0,S.T], ylim:[-ymax,ymax], xlabel:'tiempo t (s)', ylabel:'y(t)  (unidades)'});
+
+  // lecturas
+  let regimen, nota;
+  const d = Math.abs(S.w-3);
+  if(S.c===0 && d<1e-9){ regimen='Resonancia'; nota='la envolvente crece 1 u/s sin cota'; }
+  else if(S.c===0){ regimen='Acotada · pulsaciones'; nota='período de pulsación 2π/|3−ω| = '+es(2*Math.PI/d,1)+' s'; }
+  else {
+    const A = 6/Math.sqrt((9-S.w*S.w)**2 + (S.c*S.w)**2);
+    regimen='Acotada · amortiguada'; nota='amplitud de régimen permanente ≈ '+es(A,2)+' (transitorio τ = '+es(2/S.c,1)+' s)';
+  }
+  $('#simRead').innerHTML =
+    `<div><small>Máximo |y|</small><span>${es(m,2)}</span></div>
+     <div><small>Régimen</small><span style="font-size:1em;font-family:var(--sans)">${regimen}</span></div>
+     <div><small>Detalle</small><span style="font-size:.95em;font-family:var(--sans)">${nota}</span></div>
+     <div><small>|RK4 − analítica|</small><span>${errTxt}</span></div>`;
+}
+function initSim(){
+  ['s_w','s_c','s_y0','s_v0','s_T','ck_an','ck_eu','ck_env'].forEach(id => $('#'+id).addEventListener('input', drawSim));
+  $$('[data-p]').forEach(b => b.addEventListener('click', () => {
+    const p = presets[b.dataset.p];
+    $('#s_w').value = p.w; $('#s_c').value = p.c; $('#s_y0').value = 15; $('#s_v0').value = 3; $('#s_T').value = p.T || 30;
+    $$('[data-p]').forEach(x => x.classList.toggle('on', x===b));
+    drawSim();
+  }));
+  $('[data-p="res"]').classList.add('on');
+}
+
+/* =====================================================
+   Verificación (slide 9)
+===================================================== */
+function drawVer(){
+  const cA = $('#verA'), cB = $('#verB'); if(!cA.getBoundingClientRect().width) return;
+  const T=30, rk = rk4(3,0,15,3,T,0.002,5), eu = euler(3,0,15,3,T,0.01);
+  const ta = []; for(let t=0;t<=T+1e-9;t+=0.02) ta.push(t);
+  plot(cA, {series:[
+      {x:eu.t, y:eu.y, color:C.coral, width:1.4, alpha:.9},
+      {x:ta, y:ta.map(t=>analitica(t)), color:C.amber, width:3},
+      {x:rk.t, y:rk.y, color:C.teal, width:1.2, dash:[2,3]}
+    ], xlim:[0,T], ylim:[-35,35], xlabel:'t (s)', ylabel:'y(t)'});
+  const eRK = rk.t.map((t,i)=>Math.abs(rk.y[i]-analitica(t)));
+  const eEU = eu.t.map((t,i)=>Math.abs(eu.y[i]-analitica(t)));
+  plot(cB, {series:[
+      {x:eu.t, y:eEU, color:C.coral, width:1.8},
+      {x:rk.t, y:eRK.map(v=>Math.max(v,1e-16)), color:C.teal, width:1.8}
+    ], xlim:[0,T], ylim:[1e-14,1e2], ylog:true, xlabel:'t (s)', ylabel:'|error|'});
+  const f = sci;
+  const last = eu.y[eu.y.length-1];
+  $('#verRead').innerHTML =
+    `<div><small>Error máx. Runge–Kutta (4.º orden)</small><span>${f(maxAbs(eRK))}</span></div>
+     <div><small>Error máx. Euler (h = 0,01)</small><span>${es(maxAbs(eEU),2)} unidades</span></div>
+     <div><small>y(30) analítica</small><span>${es(analitica(30),2)}</span></div>
+     <div><small>y(30) con Euler</small><span>${es(last,2)}</span></div>`;
+}
+
+/* =====================================================
+   Primer orden (slide 11)
+===================================================== */
+const lin = (a,b,n=240) => Array.from({length:n+1},(_,i)=>a+(b-a)*i/n);
+const thousands = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const FO = {
+ pob:{
+  tab:'Población de Pasto',
+  eq:'dP/dt = kP &nbsp;⇒&nbsp; P(t) = P<sub>0</sub> e<sup>kt</sup>, &nbsp; P<sub>0</sub> = 383.846 (censo 2005)',
+  sl:{id:'k', label:'k propia (año⁻¹)', min:-0.012, max:0.02, step:0.0005, val:0.0018, fmt:v=>es(v,4)},
+  draw(v){
+    const xs = lin(0,25), P0=383846;
+    const A = xs.map(t=>P0*Math.exp(-0.00659*t)), B = xs.map(t=>P0*Math.exp(0.0018*t));
+    const P18 = 392930, Cx = lin(13,25,100).map(t=>2005+t), Cy = lin(13,25,100).map(t=>P18*Math.exp(0.00891*(t-13)));
+    return {opts:{series:[
+        {x:xs.map(t=>2005+t), y:A, color:C.coral, width:2},
+        {x:xs.map(t=>2005+t), y:B, color:C.teal, width:2},
+        {x:Cx, y:Cy, color:C.blue, width:2},
+        {x:xs.map(t=>2005+t), y:xs.map(t=>P0*Math.exp(v*t)), color:C.amber, dash:[6,4], width:2}
+      ], points:[{x:2023,y:410835,color:'#fff'},{x:2030,y:428174,color:'#fff'}],
+      xlim:[2005,2031], ylim:[310000,450000], xlabel:'año', ylabel:'habitantes', fmtY:thousands, fmtX:v=>String(v), wideY:true, legendPos:'bl',
+      legend:[{color:C.coral,text:'A · censo 2018 (k = −0,00659)'},{color:C.teal,text:'B · ajustado por cobertura (k = +0,00180)'},{color:C.blue,text:'C · recalibración 2018–2023 (k = +0,00891)'},{color:C.amber,text:'k propia (punteada)'},{color:'#fff',text:'Proyecciones DANE 2023 y 2030 (cuadrados)'}]},
+      read:[['P(2030) con k propia', thousands(P0*Math.exp(v*25))+' hab.'],['Proyección DANE 2030','428.174 hab.'],['Duplicación', v>0? es(Math.log(2)/v,0)+' años':'no se duplica']]};
+  },
+  note:'El signo de <b>k</b> cambia según la calidad del dato (−0,66 % con el censado, +0,18 % con el ajustado), y k no es constante entre períodos: validamos con proyecciones del DANE. Con |k| tan pequeño las curvas se ven casi rectas, pero son exponenciales.'
+ },
+ temp:{
+  tab:'Enfriamiento',
+  eq:'dT/dt = k(T − T<sub>m</sub>) &nbsp;⇒&nbsp; T(t) = 20 + 65 e<sup>kt</sup> &nbsp; (T<sub>0</sub> = 85 °C, T<sub>m</sub> = 20 °C)',
+  sl:{id:'k', label:'k (min⁻¹)', min:-0.12, max:-0.02, step:0.001, val:-0.0591, fmt:v=>es(v,4)},
+  draw(v){
+    const xs = lin(0,30);
+    return {opts:{series:[{x:xs,y:xs.map(t=>20+65*Math.exp(v*t)),color:C.teal,width:2.6}],
+      hlines:[{y:20,label:'ambiente 20 °C',color:C.blue}], xlim:[0,30], ylim:[15,90], xlabel:'tiempo (min)', ylabel:'T (°C)'},
+      read:[['T(30 min)', es(20+65*Math.exp(v*30),1)+' °C'],['Mitad de la diferencia en', es(Math.log(2)/Math.abs(v),1)+' min'],['Serie simulada a 30 min','28,1 °C']]};
+  },
+  note:'Un recipiente peor aislado (|k| mayor) se acerca mucho más rápido al ambiente. La serie es <b>simulada</b>: el enfriamiento real se acelera, algo que Newton con k constante no describe.'
+ },
+ mez:{
+  tab:'Mezcla de salmuera',
+  eq:'dA/dt + (r/V)A = r·c<sub>e</sub> &nbsp;⇒&nbsp; c(t) = 1 + 4 e<sup>−(r/V)t</sup> g/L &nbsp; (V = 100 L, c<sub>e</sub> = 1 g/L, A<sub>0</sub> = 500 g)',
+  sl:{id:'r', label:'caudal r (L/min)', min:2, max:8, step:0.5, val:4, fmt:v=>es(v,1)},
+  draw(v){
+    const xs = lin(0,120);
+    return {opts:{series:[{x:xs,y:xs.map(t=>1+4*Math.exp(-v/100*t)),color:C.teal,width:2.6}],
+      hlines:[{y:1,label:'concentración de entrada 1 g/L',color:C.blue},{y:2,label:'2 g/L',color:C.mute}], xlim:[0,120], ylim:[0.5,5.3], xlabel:'tiempo (min)', ylabel:'concentración (g/L)'},
+      read:[['Constante de tiempo V/r', es(100/v,1)+' min'],['Tiempo para llegar a 2 g/L', es(100/v*Math.log(4),1)+' min'],['c(60 min)', es(1+4*Math.exp(-v/100*60),2)+' g/L']]};
+  },
+  note:'Duplicar el caudal reduce a la mitad el tiempo para llegar a 2 g/L. El tanque «olvida» su estado inicial y adopta la concentración del flujo que entra.'
+ },
+ rc:{
+  tab:'Circuito RC',
+  eq:'R dq/dt + q/C = E &nbsp;⇒&nbsp; v<sub>C</sub>(t) = 5(1 − e<sup>−t/τ</sup>) V, &nbsp; τ = RC &nbsp; (R = 10 kΩ, C = 100 µF ⇒ τ = 1 s)',
+  sl:{id:'tau', label:'τ = RC (s)', min:0.25, max:2.5, step:0.05, val:1, fmt:v=>es(v,2)},
+  draw(v){
+    const xs = lin(0,10);
+    return {opts:{series:[{x:xs,y:xs.map(t=>5*(1-Math.exp(-t/v))),color:C.teal,width:2.6}],
+      hlines:[{y:5,label:'E = 5 V',color:C.blue}], xlim:[0,10], ylim:[0,5.5], xlabel:'tiempo (s)', ylabel:'v_C (V)'},
+      read:[['v_C en t = τ', '3,16 V (63,2 %)'],['99 % de la carga en', es(4.605*v,1)+' s'],['v_C(2 s)', es(5*(1-Math.exp(-2/v)),2)+' V']]};
+  },
+  note:'La curva es cóncava hacia abajo: la corriente de carga es máxima al inicio y disminuye al llenarse el condensador. El tiempo para el 99 % es proporcional a RC.'
+ }
+};
+let foKey = 'pob';
+function drawFO(){
+  const m = FO[foKey], v = +$('#foSlider').value;
+  $('#foVal').textContent = m.sl.fmt(v);
+  const d = m.draw(v);
+  const cv = $('#foCanvas'); if(!cv.getBoundingClientRect().width) return;
+  plot(cv, d.opts);
+  $('#foRead').innerHTML = d.read.map(r=>`<div><small>${r[0]}</small><span>${r[1]}</span></div>`).join('');
+}
+function setFO(key){
+  foKey = key; const m = FO[key];
+  $$('#foTabs button').forEach(b => b.classList.toggle('on', b.dataset.k===key));
+  $('#foEq').innerHTML = '<span class="m">'+m.eq+'</span>';
+  $('#foCtl').innerHTML = `<div class="ctl"><label>${m.sl.label} <output id="foVal"></output></label>
+     <input type="range" id="foSlider" min="${m.sl.min}" max="${m.sl.max}" step="${m.sl.step}" value="${m.sl.val}"></div>`;
+  $('#foSlider').addEventListener('input', drawFO);
+  $('#foNote').innerHTML = m.note;
+  drawFO();
+}
+function initFO(){
+  $('#foTabs').innerHTML = Object.entries(FO).map(([k,m])=>`<button data-k="${k}">${m.tab}</button>`).join('');
+  $$('#foTabs button').forEach(b => b.addEventListener('click', () => setFO(b.dataset.k)));
+  setFO('pob');
+}
+
+/* =====================================================
+   Navegación: diapositivas + revelado paso a paso
+===================================================== */
+const slides = $$('.slide');
+let cur = 0;
+const drawers = {0:drawCover, 7:drawSim, 8:drawVer, 10:drawFO};
+
+function rvOf(i){ return $$('.rv', slides[i]); }
+function show(i, revealAll=false){
+  cur = Math.max(0, Math.min(slides.length-1, i));
+  slides.forEach((s,k)=>s.classList.toggle('active', k===cur));
+  const items = rvOf(cur);
+  items.forEach(el => el.classList.toggle('on', revealAll));
+  $$('#dots button').forEach((d,k)=>d.classList.toggle('on', k===cur));
+  $('#count').textContent = (cur+1)+' / '+slides.length;
+  slides[cur].scrollTop = 0;
+  try{ history.replaceState(null,'','#'+(cur+1)+(document.body.classList.contains('all')?'L':'')); }catch(e){}
+  requestAnimationFrame(()=>{ drawers[cur] && drawers[cur](); });
+}
+function next(){
+  if(document.body.classList.contains('all')) return show(cur+1, true);
+  const hidden = rvOf(cur).find(el => !el.classList.contains('on'));
+  if(hidden){
+    hidden.classList.add('on');
+    // revela también los hermanos inmediatos de una misma fila (grid) para no gastar pulsaciones
+    hidden.scrollIntoView({behavior:'smooth', block:'nearest'});
+    if(drawers[cur]) requestAnimationFrame(drawers[cur]);
+  } else show(cur+1, false);
+}
+function prev(){
+  if(document.body.classList.contains('all')) return show(cur-1, true);
+  const shown = rvOf(cur).filter(el => el.classList.contains('on'));
+  if(shown.length) shown[shown.length-1].classList.remove('on');
+  else if(cur>0){ show(cur-1, true); }
+}
+function setMode(all){
+  document.body.classList.toggle('all', all);
+  $('#modeBtn').innerHTML = all ? '▶<span> Modo paso a paso</span>' : '📖<span> Modo lectura</span>';
+  show(cur, all);
+}
+
+/* barra */
+$('#dots').innerHTML = slides.map((s,i)=>`<button title="${i+1}. ${s.dataset.title}" aria-label="${s.dataset.title}"></button>`).join('');
+$$('#dots button').forEach((b,i)=>b.addEventListener('click',()=>show(i, document.body.classList.contains('all'))));
+$('#next').addEventListener('click', next);
+$('#prev').addEventListener('click', prev);
+$('#modeBtn').addEventListener('click', ()=>setMode(!document.body.classList.contains('all')));
+$('#fsBtn').addEventListener('click', ()=>{ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); });
+
+document.addEventListener('keydown', e=>{
+  if(e.target.matches('input,textarea,select')) { if(e.key!=='ArrowRight' && e.key!=='ArrowLeft') return; if(e.target.type==='range') return; }
+  if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){ e.preventDefault(); next(); }
+  else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){ e.preventDefault(); prev(); }
+  else if(e.key==='Home') show(0, document.body.classList.contains('all'));
+  else if(e.key==='End')  show(slides.length-1, document.body.classList.contains('all'));
+  else if(e.key==='f'||e.key==='F') $('#fsBtn').click();
+  else if(e.key==='l'||e.key==='L') $('#modeBtn').click();
+});
+window.addEventListener('resize', ()=>{ drawers[cur] && drawers[cur](); });
+
+/* arranque */
+initSim(); initFO();
+const h = location.hash.match(/^#(\d+)(L)?$/);
+if(h && h[2]) document.body.classList.add('all');
+$('#modeBtn').innerHTML = document.body.classList.contains('all') ? '▶<span> Modo paso a paso</span>' : '📖<span> Modo lectura</span>';
+show(h ? (+h[1]-1) : 0, document.body.classList.contains('all'));
+</script>
+</body>
+</html>
